@@ -8,7 +8,7 @@ module.exports.config = {
   eventType: ["log:subscribe"],
   version: "1.2.0",
   credits: "Thanh Nguyên",
-  description: "Gửi thông báo và nhạc khi bot hoặc thành viên được thêm vào nhóm",
+  description: "Gửi thông báo và file MP3 khi bot hoặc thành viên được thêm vào nhóm",
 };
 
 module.exports.run = async function ({ api, event }) {
@@ -21,11 +21,20 @@ module.exports.run = async function ({ api, event }) {
 
   const getMP3Stream = async () => {
     try {
-      const res = await axios.get("https://apidocs-ten.vercel.app/api/nhac?apikey=tnguyen001", { responseType: "stream" });
+      const res = await axios.get("https://apidocs-ten.vercel.app/api/nhac?apikey=tnguyen001"); // Thay bằng API cung cấp MP3
+      if (!res.data?.url || !res.data.url.endsWith(".mp3")) throw new Error("Không lấy được URL MP3");
+
+      const audioUrl = res.data.url;
       const filePath = path.join(__dirname, "join_audio.mp3");
 
+      const response = await axios({
+        url: audioUrl,
+        method: "GET",
+        responseType: "stream"
+      });
+
       const writer = fs.createWriteStream(filePath);
-      res.data.pipe(writer);
+      response.data.pipe(writer);
 
       return new Promise((resolve, reject) => {
         writer.on("finish", () => resolve(fs.createReadStream(filePath)));
@@ -37,6 +46,7 @@ module.exports.run = async function ({ api, event }) {
     }
   };
 
+  // Khi bot được thêm vào nhóm
   if (isBotAdded) {
     try {
       await api.changeNickname(
@@ -73,6 +83,7 @@ module.exports.run = async function ({ api, event }) {
     return;
   }
 
+  // Khi thành viên thường được thêm vào nhóm
   try {
     const added = logMessageData.addedParticipants;
     const threadInfo = await api.getThreadInfo(threadID);
